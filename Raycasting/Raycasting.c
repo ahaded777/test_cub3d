@@ -1,0 +1,331 @@
+#include "../cub3D.h"
+
+void init_player(t_map_config *g);
+
+void init(t_map_config *g)
+{
+	g->mlx = mlx_init();
+	g->win = mlx_new_window(g->mlx, WIDTH, HEIGHT, "cub3D");
+	mlx_mouse_hide(g->mlx, g->win);
+	g->img = mlx_new_image(g->mlx, WIDTH, HEIGHT);
+	g->data_pixel = mlx_get_data_addr(g->img, &g->bpp, &g->size_line, &g->endian);
+	g->textures.img = mlx_xpm_file_to_image(g->mlx, "./wall.xpm", &g->textures.width, &g->textures.height);
+	g->textures.addr = mlx_get_data_addr(g->textures.img, &g->textures.bits_per_pixel, &g->textures.line_length, &g->textures.endian);
+	// g->map = malloc(sizeof(char *) * 8);
+	// g->map[0] = strdup("1111111111111");
+	// g->map[1] = strdup("1000000000001");
+	// g->map[2] = strdup("100010W010001");
+	// g->map[3] = strdup("1000001000001");
+	// g->map[4] = strdup("1000000001001");
+	// g->map[5] = strdup("1000000000001");
+	// g->map[6] = strdup("1111111111111");
+	// g->map[7] = NULL;
+	// g->angle = M_PI / 3.0;
+	init_player(g);
+}
+
+void put_pixel(int x, int y, int color, t_map_config *g)
+{
+	if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT)
+		return;
+	int index = y * g->size_line + x * (g->bpp / 8);
+	g->data_pixel[index] = color & 0xFF;
+	g->data_pixel[index + 1] = (color >> 8) & 0xFF;
+	g->data_pixel[index + 2] = (color >> 16) & 0xFF;
+}
+
+int get_pixel_color(void *img, int x, int y)
+{
+	char *data;
+	int bpp, size_line, endian;
+	data = mlx_get_data_addr(img, &bpp, &size_line, &endian);
+	int index = y * size_line + x * (bpp / 8);
+	int color = *(int *)(data + index);
+	return color;
+}
+
+void draw_tile(t_map_config *g, int x, int y, int color)
+{
+	for (int i = 0; i < BLOCK; i++)
+	{
+		for (int j = 0; j < BLOCK; j++)
+		{
+			put_pixel(x + j, y + i, color, g);
+		}
+	}
+}
+
+void init_player(t_map_config *g)
+{
+	for (int i = 0; g->map[i]; i++)
+	{
+		for (int j = 0; g->map[i][j]; j++)
+		{
+			if (g->map[i][j] == 'W')
+			{
+				g->player.x = j * BLOCK + BLOCK / 2;
+				g->player.y = i * BLOCK + BLOCK / 2;
+				g->map[i][j] = '0';
+				return;
+			}
+		}
+	}
+}
+
+void draw_player(t_map_config *g)
+{
+	// printf("map: %c\n", (g->map[(int)(g->player.y / BLOCK) - 1][(int)(g->player.x / BLOCK)]));
+	// printf("y: %d\n, y_t: %d\n", (y / BLOCK), (y / BLOCK) + 1);
+	for (int i = 0; i < 20; i++)
+	{
+		for (int j = 0; j < 20; j++)
+		{
+			put_pixel(g->player.x + j, g->player.y + i, 255, g);
+		}
+	}
+}
+
+int draw_map(t_map_config *g)
+{
+	for (int i = 0; g->map[i]; i++)
+	{
+		for (int j = 0; g->map[i][j]; j++)
+		{
+			if (g->map[i][j] == '1')
+				draw_tile(g, j * BLOCK, i * BLOCK, 0x0000FF);
+			else if (g->map[i][j] == '0')
+				draw_tile(g, j * BLOCK, i * BLOCK, 0x000000);
+			else if (g->map[i][j] == 'D')
+				draw_tile(g, j * BLOCK, i * BLOCK, 0x00FF00);
+		}
+	}
+	draw_player(g);
+	mlx_put_image_to_window(g->mlx, g->win, g->img, 0, 0);
+	return (0);
+}
+
+int key_press(int keycode, t_map_config *g)
+{
+	if (keycode == ESC_KEY)
+		exit(0);
+	if (keycode == SPACE && g->open_door == 1)
+	{
+		if (g->map[(int)((g->player.y + 80) / BLOCK)][(int)(g->player.x / BLOCK)] == 'D')
+			g->map[(int)(g->player.y / BLOCK) + 1][(int)(g->player.x / BLOCK)] = 'O';
+		else if (g->map[(int)(g->player.y / BLOCK) - 1][(int)(g->player.x / BLOCK)] == 'D')
+			g->map[(int)(g->player.y / BLOCK) - 1][(int)(g->player.x / BLOCK)] = 'O';
+	}
+	if (keycode == SPACE && g->close_door == 1)
+	{
+		if (g->map[(int)((g->player.y) / BLOCK) + 1][(int)(g->player.x / BLOCK)] == 'O')
+			g->map[(int)(g->player.y / BLOCK) + 1][(int)(g->player.x / BLOCK)] = 'D';
+		else if (g->map[(int)(g->player.y / BLOCK) - 1][(int)(g->player.x / BLOCK)] == 'O')
+			g->map[(int)(g->player.y / BLOCK) - 1][(int)(g->player.x / BLOCK)] = 'D';
+	}
+	else if (keycode == A)
+		g->player.key_left = true;
+	else if (keycode == D)
+		g->player.key_right = true;
+	else if (keycode == W)
+		g->player.key_up = true;
+	else if (keycode == S)
+		g->player.key_down = true;
+	else if (keycode == LEFT)
+		g->player.left_rotate = true;
+	else if (keycode == RIGHT)
+		g->player.right_rotate = true;
+	return (0);
+}
+
+int key_release(int keycode, t_map_config *g)
+{
+	if (keycode == A)
+		g->player.key_left = false;
+	else if (keycode == D)
+		g->player.key_right = false;
+	else if (keycode == W)
+		g->player.key_up = false;
+	else if (keycode == S)
+		g->player.key_down = false;
+	else if (keycode == LEFT)
+		g->player.left_rotate = false;
+	else if (keycode == RIGHT)
+		g->player.right_rotate = false;
+	return (0);
+}
+
+int mo_player(t_map_config *g)
+{
+	double cos_angle = cos(g->angle);
+	double sin_angle = sin(g->angle);
+	// printf("map: %c\n", g->map[(int)(cos_angle / 2)][(int)(sin_angle / 2)]);
+	double old_x = g->player.x;
+	double old_y = g->player.y;
+	if (g->player.left_rotate)
+		g->angle -= SPEED_CAMERA;
+	if (g->player.right_rotate)
+		g->angle += SPEED_CAMERA;
+	if (g->player.key_up)
+	{
+		g->player.x += cos_angle * (double)(SPEED_PLAYER);
+		g->player.y += sin_angle * (double)(SPEED_PLAYER);
+	}
+	if (g->player.key_down)
+	{
+		g->player.x -= cos_angle * (double)(SPEED_PLAYER);
+		g->player.y -= sin_angle * (double)(SPEED_PLAYER);
+	}
+	if (g->player.key_left)
+	{
+		g->player.x += sin_angle * (double)(SPEED_PLAYER);
+		g->player.y -= cos_angle * (double)(SPEED_PLAYER);
+	}
+	if (g->player.key_right)
+	{
+		g->player.x -= sin_angle * (double)(SPEED_PLAYER);
+		g->player.y += cos_angle * (double)(SPEED_PLAYER);
+	}
+	// printf("c: %c\n", g->map[(int)((g->player.y - 60) / BLOCK) + 1][(int)(g->player.x / BLOCK)]);
+	if ((g->map[(int)((g->player.y - 82) / BLOCK) + 1][(int)(g->player.x / BLOCK)] == '1') || (g->map[(int)((g->player.y - 82) / BLOCK) + 1][(int)(g->player.x / BLOCK)] == 'D') || (g->map[(int)((g->player.y + 99) / BLOCK) - 1][(int)(g->player.x / BLOCK)] == 'D') || (g->map[(int)((g->player.y + 99) / BLOCK) - 1][(int)(g->player.x / BLOCK)] == '1') || (g->map[(int)((g->player.y) / BLOCK)][(int)((g->player.x - 80) / BLOCK) + 1] == '1'))
+	{
+
+		g->player.x = old_x;
+		g->player.y = old_y;
+	}
+	draw_map(g);
+	return (0);
+}
+
+void clear_image(t_map_config *game)
+{
+	for (int y = 0; y < HEIGHT; y++)
+		for (int x = 0; x < WIDTH; x++)
+			put_pixel(x, y, 0, game);
+}
+
+int draw_loop(t_map_config *game)
+{
+	// void *background;
+	// int bg_width, bg_height;
+	// background = mlx_xpm_file_to_image(game->mlx, "/home/aahaded/Desktop/cub3d/Raycasting/6817460faaaee_download.xpm", &g->bg_width, &bg_height);
+	// if (background)
+	// 	mlx_put_image_to_window(game->mlx, game->win, background, 0, 0);
+	// #define MINIMAP
+	mo_player(game);
+	game->ray_salib = game->angle - FOV / 2;
+	game->ray_mojab = game->angle + FOV / 2;
+#ifndef MINIMAP
+	clear_image(game);
+	int test_x = 0;
+#endif
+
+	for (double angle = game->ray_salib; angle < game->ray_mojab; angle += FOV / (double)(WIDTH))
+	{
+		int i_wall = 0;
+		int i_door = 0;
+		(void)i_wall;
+		(void)i_door;
+		int j = 0;
+		int map_x = 0;
+		int map_y = 0;
+		double distance = 0.0;
+		double ray_x = game->player.x;
+		double ray_y = game->player.y;
+		game->dx = cos(angle);
+		game->dy = sin(angle);
+		// int map_y_test  = 0;
+		int side = -1; // -1 = unknown, 0 = vertical, 1 = horizontal
+		while (j < WIDTH)
+		{
+			double x = ray_x + j * game->dx;
+			double y = ray_y + j * game->dy;
+			map_x = x / BLOCK;
+			map_y = y / BLOCK;
+			int map_y_test = ((int)(y)-0.001) / BLOCK;
+			if ((game->map[map_y][map_x] == '1' || game->map[map_y_test][map_x] == '1') || game->map[map_y][map_x] == 'D')
+			{
+				if ((game->map[map_y][map_x] == '1' || game->map[map_y_test][map_x] == '1'))
+					i_wall = 1;
+				else if (game->map[map_y][map_x] == 'D')
+					i_door = 1;
+				break;
+			}
+
+#ifdef MINIMAP
+			put_pixel(x, y, 0xFF0000, game);
+#endif
+			distance++;
+			j++;
+		}
+// double look_x = ray_x + j * game->dx;
+// double look_y = ray_y + j * game->dy;
+// int map_xa = (int)(look_x / BLOCK);
+// int map_ya = (int)(look_y / BLOCK);
+// printf("ray lwastani kaychouf f map: %c\n", game->map[map_ya][map_xa]);
+#ifndef MINIMAP
+		if (i_wall == 1 || i_door == 1)
+		{
+			double wall_height = (BLOCK * HEIGHT) / (distance * cos((angle - game->angle)));
+			double start_y = (HEIGHT / 2) - (wall_height / 2);
+			double end_y = (HEIGHT / 2) + (wall_height / 2);
+			double hit_x = ray_x + j * game->dx;
+			double hit_y = ray_y + j * game->dy;
+			if (fabs(game->dx) > fabs(game->dy))
+				side = 0;
+			else
+				side = 1;
+			double wall_x = (side == 0) ? hit_y : hit_x;
+			wall_x = fmod(wall_x, BLOCK) / BLOCK;
+			int tex_x = (int)(wall_x * game->textures.width);
+			for (double y = start_y; y < end_y; y++)
+			{
+				int tex_y = ((y - start_y) / (end_y - start_y)) * game->textures.height;
+				int color = get_pixel_color(game->textures.img, tex_x, tex_y);
+				put_pixel(test_x, y, color, game);
+			}
+			test_x++;
+		}
+#endif
+	}
+	game->open_door = 0;
+	game->close_door = 0;
+	if ((game->map[(int)(game->player.y / BLOCK) + 1][(int)(game->player.x / BLOCK)] == 'D') || (game->map[(int)(game->player.y / BLOCK) - 1][(int)(game->player.x / BLOCK)] == 'D'))
+		game->open_door = 1;
+	if ((game->map[(int)(game->player.y / BLOCK) + 1][(int)(game->player.x / BLOCK)] == 'O') || (game->map[(int)(game->player.y / BLOCK) - 1][(int)(game->player.x / BLOCK)] == 'O'))
+		game->close_door = 1;
+	mlx_put_image_to_window(game->mlx, game->win, game->img, 0, 0);
+	return 0;
+}
+
+int mouse_move(int x, int y, t_map_config *g)
+{
+	(void)y;
+	g->angle += (x - WIDTH / 2) * 0.0001;
+	mlx_mouse_move(g->mlx, g->win, WIDTH / 2, HEIGHT / 2);
+	return (0);
+}
+
+int raycasting(t_map_config *map)
+{
+	init(map);
+	draw_map(map);
+	// for (int i = 0; i < 10; i++)
+	// {
+	// 	for (int j = 0; j < 10; j++)
+	// 	{
+	// 		put_pixel(j / 2, i / 2, 255, map);
+	// 	}
+	// }
+	// cs_sound_params_t theme_params;
+	// cs_audio_source_t *sound_track;
+	// sound_track = cs_load_wav("/home/aahaded/Desktop/cub3d/resources/e1m1.wav", NULL);
+	// theme_params = cs_sound_params_default();
+	// cs_play_sound(sound_track, theme_params);
+	// mlx_mouse_move(map->mlx, map->win, WIDTH / 2, HEIGHT / 2);
+	mlx_hook(map->win, MotionNotify, PointerMotionMask, mouse_move, map);
+	mlx_loop_hook(map->mlx, draw_loop, map);
+	mlx_hook(map->win, KeyPress, KeyPressMask, key_press, map);
+	mlx_hook(map->win, KeyRelease, KeyReleaseMask, key_release, map);
+	mlx_loop(map->mlx);
+	return (0);
+}
