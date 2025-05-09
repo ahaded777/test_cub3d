@@ -51,14 +51,14 @@ typedef struct s_parsing
     bool right_rotate;
 }			t_parsing;
 
-typedef struct s_texture {
-	void *img;
-	char *addr;
-	int width;
-	int height;
-	int bits_per_pixel;
-	int line_length;
-	int endian;
+typedef struct s_textures
+{
+	void *wall_img;
+	void *door_img;
+	int wall_width;
+	int wall_height;
+	int door_width;
+	int door_height;
 } t_textures;
 
 
@@ -90,6 +90,7 @@ typedef struct s_map_config
     int close_door;
     int x_door;
     int y_door;
+    int close_kay;
     // cs_sound_params_t theme_params;
     // cs_sound_params_t *sound_track;
     t_parsing player;
