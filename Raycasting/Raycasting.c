@@ -272,6 +272,18 @@ int draw_loop(t_map_config *game)
 		}
 		if (hit_wall || hit_door)
 		{
+			double start_y1 = HEIGHT / 2;
+			double end_y1 = 0;
+			for (double y = start_y1; y > end_y1; y--)
+			{
+				put_pixel(screen_x, y, 0x87CEEB, game);
+			}
+			double start_y2 = HEIGHT / 2;
+			double end_y2 = WIDTH;
+			for (double y = start_y2; y < end_y2; y++)
+			{
+				put_pixel(screen_x, y, 0x000000, game);
+			}
 			double wall_height = (BLOCK * HEIGHT) / (distance * cos(angle - game->angle));
 			double start_y = (HEIGHT / 2) - (wall_height / 2);
 			double end_y = (HEIGHT / 2) + (wall_height / 2);
@@ -291,9 +303,10 @@ int draw_loop(t_map_config *game)
 				int tex_y = (int)(tex_pos * game->textures.height);
 				int color;
 				if (hit_wall)
-					color = get_pixel_color(game->textures.img, tex_x, tex_y, game);
+					color = get_pixel_color(game->textures.img, tex_x, tex_y);
 				else
-					color = get_pixel_color(game->textures.img, tex_x, tex_y, game);
+					color = get_pixel_color(game->textures.img, tex_x, tex_y);
+				color = apply_distance_shading(color, distance);
 				put_pixel(screen_x, y, color, game);
 			}
 			screen_x++;
