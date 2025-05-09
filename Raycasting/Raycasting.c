@@ -9,18 +9,8 @@ void init(t_map_config *g)
 	mlx_mouse_hide(g->mlx, g->win);
 	g->img = mlx_new_image(g->mlx, WIDTH, HEIGHT);
 	g->data_pixel = mlx_get_data_addr(g->img, &g->bpp, &g->size_line, &g->endian);
-	g->textures.img = mlx_xpm_file_to_image(g->mlx, "./wall.xpm", &g->textures.width, &g->textures.height);
-	g->textures.addr = mlx_get_data_addr(g->textures.img, &g->textures.bits_per_pixel, &g->textures.line_length, &g->textures.endian);
-	// g->map = malloc(sizeof(char *) * 8);
-	// g->map[0] = strdup("1111111111111");
-	// g->map[1] = strdup("1000000000001");
-	// g->map[2] = strdup("100010W010001");
-	// g->map[3] = strdup("1000001000001");
-	// g->map[4] = strdup("1000000001001");
-	// g->map[5] = strdup("1000000000001");
-	// g->map[6] = strdup("1111111111111");
-	// g->map[7] = NULL;
-	// g->angle = M_PI / 3.0;
+	g->textures.wall_img = mlx_xpm_file_to_image(g->mlx, "./wall.xpm", &g->textures.wall_width, &g->textures.wall_height);
+	g->textures.door_img = mlx_xpm_file_to_image(g->mlx, "./door.xpm", &g->textures.door_width, &g->textures.door_height);
 	init_player(g);
 }
 
@@ -117,14 +107,14 @@ int key_press(int keycode, t_map_config *g)
 {
 	if (keycode == ESC_KEY)
 		exit(0);
-	if (keycode == SPACE && g->open_door == 1)
+	if (keycode == SPACE && g->open_door == 1 && g->close_kay == 0)
 	{
 		if (g->map[(int)((g->player.y + 80) / BLOCK)][(int)(g->player.x / BLOCK)] == 'D')
 			g->map[(int)(g->player.y / BLOCK) + 1][(int)(g->player.x / BLOCK)] = 'O';
 		else if (g->map[(int)(g->player.y / BLOCK) - 1][(int)(g->player.x / BLOCK)] == 'D')
 			g->map[(int)(g->player.y / BLOCK) - 1][(int)(g->player.x / BLOCK)] = 'O';
 	}
-	if (keycode == SPACE && g->close_door == 1)
+	else if (keycode == SPACE && g->close_door == 1 && g->close_kay == 0)
 	{
 		if (g->map[(int)((g->player.y) / BLOCK) + 1][(int)(g->player.x / BLOCK)] == 'O')
 			g->map[(int)(g->player.y / BLOCK) + 1][(int)(g->player.x / BLOCK)] = 'D';
@@ -132,13 +122,25 @@ int key_press(int keycode, t_map_config *g)
 			g->map[(int)(g->player.y / BLOCK) - 1][(int)(g->player.x / BLOCK)] = 'D';
 	}
 	else if (keycode == A)
+	{
+		g->close_kay = 1;
 		g->player.key_left = true;
+	}
 	else if (keycode == D)
+	{
+		g->close_kay = 1;
 		g->player.key_right = true;
+	}
 	else if (keycode == W)
+	{
+		g->close_kay = 1;
 		g->player.key_up = true;
+	}
 	else if (keycode == S)
+	{
+		g->close_kay = 1;
 		g->player.key_down = true;
+	}
 	else if (keycode == LEFT)
 		g->player.left_rotate = true;
 	else if (keycode == RIGHT)
@@ -149,13 +151,25 @@ int key_press(int keycode, t_map_config *g)
 int key_release(int keycode, t_map_config *g)
 {
 	if (keycode == A)
+	{
+		g->close_kay = 0;
 		g->player.key_left = false;
+	}
 	else if (keycode == D)
+	{
+		g->close_kay = 0;
 		g->player.key_right = false;
+	}
 	else if (keycode == W)
+	{
+		g->close_kay = 0;
 		g->player.key_up = false;
+	}
 	else if (keycode == S)
+	{
+		g->close_kay = 0;
 		g->player.key_down = false;
+	}
 	else if (keycode == LEFT)
 		g->player.left_rotate = false;
 	else if (keycode == RIGHT)
@@ -249,7 +263,6 @@ int draw_loop(t_map_config *game)
 		double ray_y = game->player.y;
 		game->dx = cos(angle);
 		game->dy = sin(angle);
-		int side = -1;
 		int j = 0;
 		while (j < WIDTH)
 		{
@@ -270,47 +283,54 @@ int draw_loop(t_map_config *game)
 			distance++;
 			j++;
 		}
-		if (hit_wall || hit_door)
+		double start_y1 = HEIGHT / 2;
+		double end_y1 = 0;
+		for (double y = start_y1; y > end_y1; y--)
 		{
-			double start_y1 = HEIGHT / 2;
-			double end_y1 = 0;
-			for (double y = start_y1; y > end_y1; y--)
-			{
-				put_pixel(screen_x, y, 0x87CEEB, game);
-			}
-			double start_y2 = HEIGHT / 2;
-			double end_y2 = WIDTH;
-			for (double y = start_y2; y < end_y2; y++)
-			{
-				put_pixel(screen_x, y, 0x000000, game);
-			}
-			double wall_height = (BLOCK * HEIGHT) / (distance * cos(angle - game->angle));
-			double start_y = (HEIGHT / 2) - (wall_height / 2);
-			double end_y = (HEIGHT / 2) + (wall_height / 2);
-			double hit_x = ray_x + j * game->dx;
-			double hit_y = ray_y + j * game->dy;
-			double wall_x = 0.0;
-			if (fabs(hit_x / BLOCK - (int)(hit_x / BLOCK)) < 0.01 ||
-				fabs(hit_x / BLOCK - (int)(hit_x / BLOCK) - 1) < 0.01)
-				wall_x = hit_y;
-			else
-				wall_x = hit_x;
-			wall_x = fmod(wall_x, BLOCK) / BLOCK;
-			int tex_x = (int)(wall_x * game->textures.width);
-			for (double y = start_y; y < end_y; y++)
-			{
-				double tex_pos = ((y - start_y) / (end_y - start_y));
-				int tex_y = (int)(tex_pos * game->textures.height);
-				int color;
-				if (hit_wall)
-					color = get_pixel_color(game->textures.img, tex_x, tex_y);
-				else
-					color = get_pixel_color(game->textures.img, tex_x, tex_y);
-				color = apply_distance_shading(color, distance);
-				put_pixel(screen_x, y, color, game);
-			}
-			screen_x++;
+			put_pixel(screen_x, y, 0x87CEEB, game);
 		}
+		double start_y2 = HEIGHT / 2;
+		double end_y2 = WIDTH;
+		for (double y = start_y2; y < end_y2; y++)
+		{
+			put_pixel(screen_x, y, 0x000000, game);
+		}
+		double wall_height = (BLOCK * HEIGHT) / (distance * cos(angle - game->angle));
+		double start_y = (HEIGHT / 2) - (wall_height / 2);
+		double end_y = (HEIGHT / 2) + (wall_height / 2);
+		double hit_x = ray_x + j * game->dx;
+		double hit_y = ray_y + j * game->dy;
+		double wall_x = 0.0;
+		if (fabs(hit_x / BLOCK - (int)(hit_x / BLOCK)) < 0.01 ||
+			fabs(hit_x / BLOCK - (int)(hit_x / BLOCK) - 1) < 0.01)
+			wall_x = hit_y;
+		else
+			wall_x = hit_x;
+		wall_x = fmod(wall_x, BLOCK) / BLOCK;
+		int tex_x = 0;
+		if (hit_wall)
+			tex_x = (int)(wall_x * game->textures.wall_height);
+		else if (hit_door)
+			tex_x = (int)(wall_x * game->textures.door_width);
+		for (double y = start_y; y < end_y; y++)
+		{
+			double tex_pos = ((y - start_y) / (end_y - start_y));
+			int tex_y = 0;
+			int color = 0;
+			if (hit_wall)
+			{
+				tex_y = (int)(tex_pos * game->textures.wall_height);
+				color = get_pixel_color(game->textures.wall_img, tex_x, tex_y);
+			}
+			else if (hit_door)
+			{
+				tex_y = (int)(tex_pos * game->textures.door_height);
+				color = get_pixel_color(game->textures.door_img, tex_x, tex_y);
+			}
+			color = apply_distance_shading(color, distance);
+			put_pixel(screen_x, y, color, game);
+		}
+		screen_x++;
 	}
 	game->open_door = 0;
 	game->close_door = 0;
