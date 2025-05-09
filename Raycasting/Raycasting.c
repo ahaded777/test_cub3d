@@ -61,10 +61,19 @@ void init_player(t_map_config *g)
 	{
 		for (int j = 0; g->map[i][j]; j++)
 		{
-			if (g->map[i][j] == 'W')
+			if (g->map[i][j] == 'W' || g->map[i][j] == 'N' ||
+				g->map[i][j] == 'S' || g->map[i][j] == 'E')
 			{
 				g->player.x = j * BLOCK + BLOCK / 2;
 				g->player.y = i * BLOCK + BLOCK / 2;
+				if (g->map[i][j] == 'N')
+					g->angle = -M_PI / 2;
+				else if (g->map[i][j] == 'S')
+					g->angle = M_PI / 2;
+				else if (g->map[i][j] == 'W')
+					g->angle = M_PI;
+				else if (g->map[i][j] == 'E')
+					g->angle = 0;
 				g->map[i][j] = '0';
 				return;
 			}
@@ -226,88 +235,51 @@ int apply_distance_shading(int color, double distance);
 
 int draw_loop(t_map_config *game)
 {
-	// void *background;
-	// int bg_width, bg_height;
-	// background = mlx_xpm_file_to_image(game->mlx, "/home/aahaded/Desktop/cub3d/Raycasting/6817460faaaee_download.xpm", &g->bg_width, &bg_height);
-	// if (background)
-	// 	mlx_put_image_to_window(game->mlx, game->win, background, 0, 0);
-	// #define MINIMAP
 	mo_player(game);
-	// draw_s(game);
 	game->ray_salib = game->angle - FOV / 2;
 	game->ray_mojab = game->angle + FOV / 2;
-#ifndef MINIMAP
 	clear_image(game);
-	int test_x = 0;
-#endif
-
+	int screen_x = 0;
 	for (double angle = game->ray_salib; angle < game->ray_mojab; angle += FOV / (double)(WIDTH))
 	{
-		int i_wall = 0;
-		int i_door = 0;
-		(void)i_wall;
-		(void)i_door;
-		int j = 0;
-		int map_x = 0;
-		int map_y = 0;
+		int hit_wall = 0;
+		int hit_door = 0;
 		double distance = 0.0;
-		double ray_x = game->player.x + 10;
-		double ray_y = game->player.y + 10;
+		double ray_x = game->player.x;
+		double ray_y = game->player.y;
 		game->dx = cos(angle);
 		game->dy = sin(angle);
-		// int map_y_test  = 0;
+		int side = -1;
+		int j = 0;
 		while (j < WIDTH)
 		{
 			double x = ray_x + j * game->dx;
 			double y = ray_y + j * game->dy;
-			map_x = x / BLOCK;
-			map_y = y / BLOCK;
+			int map_x = x / BLOCK;
+			int map_y = y / BLOCK;
 			int map_y_test = ((int)(y)-0.001) / BLOCK;
 			if ((game->map[map_y][map_x] == '1' || game->map[map_y_test][map_x] == '1') || game->map[map_y][map_x] == 'D')
 			{
 				if ((game->map[map_y][map_x] == '1' || game->map[map_y_test][map_x] == '1'))
-					i_wall = 1;
+					hit_wall = 1;
 				else if (game->map[map_y][map_x] == 'D')
-					i_door = 1;
+					hit_door = 1;
 				break;
 			}
-
-#ifdef MINIMAP
-			put_pixel(x, y, 0xFF0000, game);
-#endif
+			// put_pixel(x, y, 0xFF0000, game);
 			distance++;
 			j++;
 		}
-
-// double look_x = ray_x + j * game->dx;
-// double look_y = ray_y + j * game->dy;
-// int map_xa = (int)(look_x / BLOCK);
-// int map_ya = (int)(look_y / BLOCK);
-// printf("ray lwastani kaychouf f map: %c\n", game->map[map_ya][map_xa]);
-#ifndef MINIMAP
-		if (i_wall == 1 || i_door == 1)
+		if (hit_wall || hit_door)
 		{
-			// double wall_height1 = (BLOCK * HEIGHT) / (distance);
-
-			double start_y1 = HEIGHT / 2;
-			double end_y1 = 0;
-			for (double y = start_y1; y > end_y1; y--)
-			{
-				put_pixel(test_x, y, 0x87CEEB, game);
-			}
-			double start_y2 = HEIGHT / 2;
-			double end_y2 = WIDTH;
-			for (double y = start_y2; y < end_y2; y++)
-			{
-				put_pixel(test_x, y, 0x000000, game);
-			}
-			double wall_height = (BLOCK * HEIGHT) / (distance * cos((angle - game->angle)));
+			double wall_height = (BLOCK * HEIGHT) / (distance * cos(angle - game->angle));
 			double start_y = (HEIGHT / 2) - (wall_height / 2);
 			double end_y = (HEIGHT / 2) + (wall_height / 2);
 			double hit_x = ray_x + j * game->dx;
 			double hit_y = ray_y + j * game->dy;
 			double wall_x = 0.0;
-			if (fabs(game->dx) > fabs(game->dy))
+			if (fabs(hit_x / BLOCK - (int)(hit_x / BLOCK)) < 0.01 ||
+				fabs(hit_x / BLOCK - (int)(hit_x / BLOCK) - 1) < 0.01)
 				wall_x = hit_y;
 			else
 				wall_x = hit_x;
@@ -315,15 +287,17 @@ int draw_loop(t_map_config *game)
 			int tex_x = (int)(wall_x * game->textures.width);
 			for (double y = start_y; y < end_y; y++)
 			{
-				int tex_y = ((y - start_y) / (end_y - start_y)) * game->textures.height;
-				int color = get_pixel_color(game->textures.img, tex_x, tex_y);
-				color = apply_distance_shading(color, distance);
-				put_pixel(test_x, y, color, game);
+				double tex_pos = ((y - start_y) / (end_y - start_y));
+				int tex_y = (int)(tex_pos * game->textures.height);
+				int color;
+				if (hit_wall)
+					color = get_pixel_color(game->textures.img, tex_x, tex_y, game);
+				else
+					color = get_pixel_color(game->textures.img, tex_x, tex_y, game);
+				put_pixel(screen_x, y, color, game);
 			}
-
-			test_x++;
+			screen_x++;
 		}
-#endif
 	}
 	game->open_door = 0;
 	game->close_door = 0;
