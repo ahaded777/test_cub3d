@@ -55,6 +55,7 @@ typedef struct s_textures
 {
 	void *wall_img;
 	void *door_img;
+	void *img;
 	int wall_width;
 	int wall_height;
 	int door_width;
