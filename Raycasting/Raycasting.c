@@ -10,8 +10,8 @@ void init(t_map_config *g)
 	g->img = mlx_new_image(g->mlx, WIDTH, HEIGHT);
 	g->data_pixel = mlx_get_data_addr(g->img, &g->bpp, &g->size_line, &g->endian);
 	g->textures.wall_img = mlx_xpm_file_to_image(g->mlx, "./wall.xpm", &g->textures.wall_width, &g->textures.wall_height);
-	g->textures.door_img = mlx_xpm_file_to_image(g->mlx, "./door.xpm", &g->textures.door_width, &g->textures.door_height);
 	g->textures.img = mlx_xpm_file_to_image(g->mlx, "./gg.xpm", &g->textures.wall_width, &g->textures.wall_height);
+	g->textures.door_img = mlx_xpm_file_to_image(g->mlx, "./door.xpm", &g->textures.door_width, &g->textures.door_height);
 	init_player(g);
 }
 
@@ -320,20 +320,32 @@ int draw_loop(t_map_config *game)
 			int color = 0;
 			if (hit_wall)
 			{
-				if (fabs(hit_x / BLOCK - (int)(hit_x / BLOCK)) < 0.01
-				|| fabs(hit_x / BLOCK - (int)(hit_x / BLOCK) - 1) < 0.01)
+				if (fabs(hit_x / BLOCK - (int)(hit_x / BLOCK)) < 0.01 ||
+					fabs(hit_x / BLOCK - (int)(hit_x / BLOCK) - 1) < 0.01)
 				{
-					if ((game->dx) > 0)
-						color = get_pixel_color(game->textures.wall_img, tex_x, tex_y);
-					else
-						color = get_pixel_color(game->textures.img, tex_x, tex_y);;
+					// if (game->dx > 0)
+					// {
+					// 	tex_y = (int)(tex_pos * game->textures.wall_height);
+					// 	color = get_pixel_color(game->textures.wall_img, tex_x, tex_y);
+					// }
+					// else
+					// {
+						tex_y = (int)(tex_pos * game->textures.wall_height);
+						color = get_pixel_color(game->textures.img, tex_x, tex_y);
+					// }
 				}
 				else
 				{
-					if ((game->dy) > 0)
-						color = 0xFFFF00;
-					else
-						color = 0x00FFFF;
+					// if (game->dy > 0)
+					// {
+					// 	tex_y = (int)(tex_pos * game->textures.wall_height);
+					// 	color = get_pixel_color(game->textures.wall_img, tex_x, tex_y);
+					// }
+					// else
+					// {
+						tex_y = (int)(tex_pos * game->textures.wall_height);
+						color = get_pixel_color(game->textures.wall_img, tex_x, tex_y);
+					// }
 				}
 			}
 			else if (hit_door)
