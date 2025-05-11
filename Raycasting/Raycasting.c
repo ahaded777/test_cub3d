@@ -251,119 +251,126 @@ int apply_distance_shading(int color, double distance);
 int draw_loop(t_map_config *game)
 {
 	mo_player(game);
-	game->ray_salib = game->angle - FOV / 2;
-	game->ray_mojab = game->angle + FOV / 2;
+	game->ray_salib = game->angle - 0.6;
+	game->ray_mojab = game->angle + 0.6;
 	clear_image(game);
 	int screen_x = 0;
-	for (double angle = game->ray_salib; angle < game->ray_mojab; angle += FOV / (double)(WIDTH))
+
+	for (double angle = game->ray_salib; angle < game->ray_mojab; angle += (1.2 / 1280))
 	{
-		int hit_wall = 0;
-		int hit_door = 0;
-		double distance = 0.0;
-		double ray_x = game->player.x + 10;
-		double ray_y = game->player.y + 10;
 		game->dx = cos(angle);
 		game->dy = sin(angle);
-		int j = 0;
-		while (j < WIDTH)
+
+		double player_x = game->player.x + 10;
+		double player_y = game->player.y + 10;
+
+		int map_x = (int)(player_x / BLOCK);
+		int map_y = (int)(player_y / BLOCK);
+
+		double delta_dist_x = fabs(1.0 / game->dx);
+		double delta_dist_y = fabs(1.0 / game->dy);
+
+		int step_x;
+		int step_y;
+
+		double side_dist_x;
+		double side_dist_y;
+
+		if (game->dx < 0)
 		{
-			double x = ray_x + j * game->dx;
-			double y = ray_y + j * game->dy;
-			int map_x = x / BLOCK;
-			int map_y = y / BLOCK;
-			int map_y_test = ((int)(y)-0.001) / BLOCK;
-			if ((game->map[map_y][map_x] == '1' || game->map[map_y_test][map_x] == '1') || game->map[map_y][map_x] == 'D')
+			step_x = -1;
+			side_dist_x = (player_x - map_x * BLOCK) / BLOCK * delta_dist_x;
+		}
+		else
+		{
+			step_x = 1;
+			side_dist_x = ((map_x + 1) * BLOCK - player_x) / BLOCK * delta_dist_x;
+		}
+		if (game->dy < 0)
+		{
+			step_y = -1;
+			side_dist_y = (player_y - map_y * BLOCK) / BLOCK * delta_dist_y;
+		}
+		else
+		{
+			step_y = 1;
+			side_dist_y = ((map_y + 1) * BLOCK - player_y) / BLOCK * delta_dist_y;
+		}
+
+		int hit = 0;
+		int side = 0;
+		int hit_wall = 0;
+		int hit_door = 0;
+
+		while (!hit)
+		{
+			if (side_dist_x < side_dist_y)
 			{
-				if ((game->map[map_y][map_x] == '1' || game->map[map_y_test][map_x] == '1'))
-					hit_wall = 1;
-				else if (game->map[map_y][map_x] == 'D')
-					hit_door = 1;
-				break;
+				side_dist_x += delta_dist_x;
+				map_x += step_x;
+				side = 0;
 			}
-			// put_pixel(x, y, 0xFF0000, game);
-			distance++;
-			j++;
+			else
+			{
+				side_dist_y += delta_dist_y;
+				map_y += step_y;
+				side = 1;
+			}
+
+			if (map_y >= 0 && map_x >= 0 && map_y < HEIGHT && map_x < WIDTH)
+			{
+				if (game->map[map_y][map_x] == '1')
+				{
+					hit = 1;
+					hit_wall = 1;
+				}
+				else if (game->map[map_y][map_x] == 'D')
+				{
+					hit = 1;
+					hit_door = 1;
+				}
+			}
+			else
+			{
+				hit = 1;
+			}
 		}
-		double start_y1 = HEIGHT / 2;
-		double end_y1 = 0;
-		for (double y = start_y1; y > end_y1; y--)
-		{
-			put_pixel(screen_x, y, 0x87CEEB, game);
-		}
-		double start_y2 = HEIGHT / 2;
-		double end_y2 = WIDTH;
-		for (double y = start_y2; y < end_y2; y++)
-		{
-			put_pixel(screen_x, y, 0x000000, game);
-		}
-		double wall_height = (BLOCK * HEIGHT) / (distance * cos(angle - game->angle));
+
+		double perp_wall_dist;
+		if (side == 0)
+			perp_wall_dist = ((map_x - player_x / BLOCK) + (1 - step_x) / 2) / game->dx * BLOCK;
+		else
+			perp_wall_dist = ((map_y - player_y / BLOCK) + (1 - step_y) / 2) / game->dy * BLOCK;
+		double wall_height = (BLOCK * HEIGHT) / (perp_wall_dist * cos(angle - game->angle));
 		double start_y = (HEIGHT / 2) - (wall_height / 2);
 		double end_y = (HEIGHT / 2) + (wall_height / 2);
-		double hit_x = ray_x + j * game->dx;
-		double hit_y = ray_y + j * game->dy;
-		double wall_x = 0.0;
-		if (fabs(hit_x / BLOCK - (int)(hit_x / BLOCK)) < 0.01 ||
-			fabs(hit_x / BLOCK - (int)(hit_x / BLOCK) - 1) < 0.01)
-			wall_x = hit_y;
-		else
-			wall_x = hit_x;
-		wall_x = fmod(wall_x, BLOCK) / BLOCK;
-		int tex_x = 0;
-		if (hit_wall)
-			tex_x = (int)(wall_x * game->textures.wall_height);
-		else if (hit_door)
-			tex_x = (int)(wall_x * game->textures.door_width);
+
 		for (double y = start_y; y < end_y; y++)
 		{
-			double tex_pos = ((y - start_y) / (end_y - start_y));
-			int tex_y = 0;
 			int color = 0;
 			if (hit_wall)
 			{
-				if (fabs(hit_x / BLOCK - (int)(hit_x / BLOCK)) < 0.01 ||
-					fabs(hit_x / BLOCK - (int)(hit_x / BLOCK) - 1) < 0.01)
-				{
-					// if (game->dx > 0)
-					// {
-					// 	tex_y = (int)(tex_pos * game->textures.wall_height);
-					// 	color = get_pixel_color(game->textures.wall_img, tex_x, tex_y);
-					// }
-					// else
-					// {
-						tex_y = (int)(tex_pos * game->textures.wall_height);
-						color = get_pixel_color(game->textures.img, tex_x, tex_y);
-					// }
-				}
+				if (side == 0)
+					color = 0x00FF00;
 				else
-				{
-					// if (game->dy > 0)
-					// {
-					// 	tex_y = (int)(tex_pos * game->textures.wall_height);
-					// 	color = get_pixel_color(game->textures.wall_img, tex_x, tex_y);
-					// }
-					// else
-					// {
-						tex_y = (int)(tex_pos * game->textures.wall_height);
-						color = get_pixel_color(game->textures.wall_img, tex_x, tex_y);
-					// }
-				}
+					color = 0x0000FF;
 			}
 			else if (hit_door)
-			{
-				tex_y = (int)(tex_pos * game->textures.door_height);
-				color = get_pixel_color(game->textures.door_img, tex_x, tex_y);
-			}
-			color = apply_distance_shading(color, distance);
+				color = 0xFFFF00;
+
 			put_pixel(screen_x, y, color, game);
 		}
 		screen_x++;
 	}
 	game->open_door = 0;
 	game->close_door = 0;
-	if ((game->map[(int)(game->player.y / BLOCK) + 1][(int)(game->player.x / BLOCK)] == 'D') || (game->map[(int)(game->player.y / BLOCK) - 1][(int)(game->player.x / BLOCK)] == 'D'))
+	if ((game->map[(int)(game->player.y / BLOCK) + 1][(int)(game->player.x / BLOCK)] == 'D') ||
+		(game->map[(int)(game->player.y / BLOCK) - 1][(int)(game->player.x / BLOCK)] == 'D'))
 		game->open_door = 1;
-	if ((game->map[(int)(game->player.y / BLOCK) + 1][(int)(game->player.x / BLOCK)] == 'O') || (game->map[(int)(game->player.y / BLOCK) - 1][(int)(game->player.x / BLOCK)] == 'O'))
+	if ((game->map[(int)(game->player.y / BLOCK) + 1][(int)(game->player.x / BLOCK)] == 'O') ||
+		(game->map[(int)(game->player.y / BLOCK) - 1][(int)(game->player.x / BLOCK)] == 'O'))
 		game->close_door = 1;
+
 	mlx_put_image_to_window(game->mlx, game->win, game->img, 0, 0);
 	return 0;
 }
